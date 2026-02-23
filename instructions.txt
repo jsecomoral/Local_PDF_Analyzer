@@ -1,9 +1,0 @@
-pixi run --manifest-path /Users/jesus/Work/pixi/chemobio/pixi.toml gh repo create conformer-search --public    ## creates the repository in the server
-pixi run --manifest-path /Users/jesus/Work/pixi/chemobio/pixi.toml git remote remove origin                    ## Reset the origin just to be safe 
-pixi run --manifest-path /Users/jesus/Work/pixi/chemobio/pixi.toml git remote add origin https://github.com/jsecomoral/conformer-search.git
-pixi run --manifest-path /Users/jesus/Work/pixi/chemobio/pixi.toml git push -u origin main                     ## Brings the files from local to the github server (we use -u option only the first time)
-pixi run --manifest-path /Users/jesus/Work/pixi/chemobio/pixi.toml gh repo view jsecomoral/conformer-search    ##   checks the content of the repo w/o opening the browser
-pixi run git rm molecules.old.smi     ## Remove the file molecules.old.smi from the repo
-pixi run git commit -m "Remove old smiles file"    ## make the commit about removing file
-pixi run git push origin main   ## rings the files from local to the github server
-pixi run git ls-files           ## List all the files from the repo

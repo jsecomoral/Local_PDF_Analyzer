@@ -12,6 +12,7 @@ python = ">=3.11"
 rich = ">=13.0.0"
 # To communicate with the local Ollama API
 requests = ">=2.31.0"
+gh = ">=2.87.2,<3"
 
 [pypi-dependencies]
 # Direct PyPI install for stability with local Ollama instances
