@@ -1,0 +1,25 @@
+[workspace]
+name = "PDF-Analyzer"
+version = "1.0.0"
+description = "Professional local pdf analysis with Senior Expert Panel logic"
+authors = ["Jesus Seco"]
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[dependencies]
+python = ">=3.11"
+# For terminal UI, padding, and professional formatting
+rich = ">=13.0.0"
+# To communicate with the local Ollama API
+requests = ">=2.31.0"
+
+[pypi-dependencies]
+# Direct PyPI install for stability with local Ollama instances
+ollama = "*"
+# We use the official conda-forge name for the package
+pymupdf = ">=1.24.0"
+
+[tasks]
+# Example task to run the analyzer with your specific flags
+# Usage: pixi run analyze --pdf your_file.pdf --detail 8
+analyze = "python app.py"
