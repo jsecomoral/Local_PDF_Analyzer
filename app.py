@@ -17,6 +17,8 @@ class Colors:
     FAIL = '\033[91m'
     ENDC = '\033[0m'
 
+console = Console()
+
 def clean_text_content(text):
     """Sanitizes output by removing non-ASCII characters (emojis/symbols)"""
     text = text.encode('ascii', 'ignore').decode('ascii')
@@ -47,9 +49,6 @@ def extract_content_strict(pdf_path):
 
 # --- EXPERT ENGINE LOGIC ---
 
-# console = Console(width=100)   ## modify this line if you want larger content per line or auto-console text adjustment
-console = Console()
-
 def remove_formatting_tags(text):
     """Removes Rich markup tags for clean Markdown file export"""
     return re.sub(r'\[/?(?:red|green|white|blue|yellow|cyan|bold|u|italic)\]', '', text)
@@ -65,7 +64,7 @@ def export_to_markdown(content, filename="summary.md"):
     except Exception as e:
         return False
 
-def get_chat_response(messages, detail_level=5):
+def get_chat_response(messages):
     """Communicates with Ollama API"""
     try:
         with console.status("[bold green]Senior Expert Panel processing..."):
@@ -78,55 +77,78 @@ def get_chat_response(messages, detail_level=5):
     except Exception as e:
         return f"[red]Error: {e}[/red]"
 
-def start_interactive_session(pdf_text, detail_level):
+def detect_language(text):
+    """Asks the model to detect the language of the provided text"""
+    prompt = f"Identify the language of the following text and reply ONLY with the language name (e.g., English, Spanish, French). Text: {text[:1000]}"
+    msg = [{'role': 'user', 'content': prompt}]
+    return get_chat_response(msg)
+
+def start_interactive_session(pdf_text, output_lang):
     """Interactive loop with conversation history"""
     console.print("\n" + "─" * 60)
     console.print("[bold cyan]INTERACTIVE SESSION ACTIVE[/bold cyan]")
     
     system_msg = {
         'role': 'system', 
-        'content': f"You are a Senior Expert. Use context: {pdf_text}. No emojis. No symbols."
+        'content': f"You are a Senior Expert. Use context: {pdf_text}. Answer in {output_lang}. No emojis. No symbols."
     }
     chat_history = [system_msg]
     
     while True:
-        query = console.input("\n[bold yellow]Ask the Expert: [/bold yellow]")
+        query = console.input(f"\n[bold yellow]Ask the Expert ({output_lang}): [/bold yellow]")
         if query.lower() in ['exit', 'quit']: break
         if query.lower() == 'clear':
             chat_history = [system_msg]
             continue
         
         chat_history.append({'role': 'user', 'content': query})
-        answer = get_chat_response(chat_history, detail_level)
+        answer = get_chat_response(chat_history)
         chat_history.append({'role': 'assistant', 'content': answer})
-        console.print(Padding(Text.from_markup(f"\n[blue]EXPERT INSIGHT:[/blue]\n{answer}"), (1, 3, 1, 3)))
+        
+        try:
+            rendered_ans = Text.from_markup(f"\n[blue]EXPERT INSIGHT:[/blue]\n{answer}")
+        except:
+            rendered_ans = Text(f"\nEXPERT INSIGHT:\n{answer}")
+            
+        console.print(Padding(rendered_ans, (1, 3, 1, 3)))
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pdf", required=True)
     parser.add_argument("--detail", type=int, default=5)
+    parser.add_argument("--lang", type=str, default="Spanish", help="Language for the summary output")
     args = parser.parse_args()
 
     text = extract_content_strict(args.pdf)
     if not text: return
 
-    # REINFORCED PROMPT: Mandatory tags for EVERY word
+    # LANGUAGE DETECTION PHASE
+    input_lang = detect_language(text)
+    console.print(f"\n[bold white]SOURCE LANGUAGE detected:[/bold white] [bold cyan]{input_lang}[/bold cyan]")
+    console.print(f"[bold white]OUTPUT LANGUAGE set to:[/bold white] [bold cyan]{args.lang}[/bold cyan]\n")
+
+    # REINFORCED PROMPT: Language specific output
     master_prompt = f"""
     You are a Senior Expert Analyzer. 
-    IMPORTANT: You must use Rich Markup tags for EVERY section.
+    IMPORTANT: You must write the entire report in {args.lang}.
+    You must use Rich Markup tags for EVERY section.
     DO NOT use asterisks (*) or any other symbols.
 
+    STRICT MARKUP RULES:
+    - To close a style, use the specific tag: [/bold], [/u], [/yellow], etc.
+    - NEVER combine closing tags like [/u yellow]. Close them one by one.
+
     REQUIRED STRUCTURE:
-    1. Start with: [bold u yellow]PHASE 1: CLASSIFICATION.[/bold u yellow]
+    1. Start with: [bold yellow]PHASE 1: CLASSIFICATION.[/bold yellow]
        Then, write all content for this phase wrapped in [yellow]...[/yellow] tags.
 
-    2. Then: [bold u green]PHASE 2: HIGHLIGHTS[/bold u green]
+    2. Then: [bold green]PHASE 2: HIGHLIGHTS[/bold green]
        Then, write all content for this phase wrapped in [green]...[/green] tags.
 
-    3. Then: [bold u red]PHASE 3: TOP 10 CRITICAL INSIGHTS[/bold u red]
+    3. Then: [bold red]PHASE 3: TOP 10 CRITICAL INSIGHTS[/bold red]
        Then, write the 10 points wrapped in [red]...[/red] tags.
 
-    4. Finally: [bold u blue]PHASE 4: EXECUTIVE SUMMARY[/bold u blue]
+    4. Finally: [bold blue]PHASE 4: EXECUTIVE SUMMARY[/bold blue]
        Then, write the summary wrapped in [blue]...[/blue] tags.
     
     Detail level: {args.detail}/10.
@@ -139,14 +161,19 @@ def main():
         {'role': 'user', 'content': master_prompt}
     ]
     
-    report = get_chat_response(initial_msg, args.detail)
+    report = get_chat_response(initial_msg)
     
-    # We use Text.from_markup to ensure colors are rendered
-    console.print("\n" + " " * 12 + "[bold u]INITIAL EXPERT REPORT[/bold u]")
-    console.print(Padding(Text.from_markup(report), (1, 3, 1, 3)))
+    console.print("\n" + " " * 12 + f"[bold u]INITIAL EXPERT REPORT ({args.lang})[/bold u]")
+    
+    try:
+        rendered_report = Text.from_markup(report)
+    except Exception:
+        rendered_report = Text(report)
+        
+    console.print(Padding(rendered_report, (1, 3, 1, 3)))
 
     export_to_markdown(report)
-    start_interactive_session(text, args.detail)
+    start_interactive_session(text, args.lang)
 
 if __name__ == "__main__":
     main()
